@@ -25,16 +25,19 @@
         use app\controllers\loginController;
 
         $insLogin = new loginController();
-
         $viewsController= new viewsController();
+
         $vista=$viewsController->obtenerVistasControlador($url[0]);
 
         if($vista=="login" || $vista=="404"){
             require_once "./app/views/content/".$vista."-view.php";
-        }else{
+        } else {
 
             # Cerrar sesion #
-            if((!isset($_SESSION['id']) || $_SESSION['id']=="") || (!isset($_SESSION['usuario']) || $_SESSION['usuario']=="")){
+
+            $sesionActiva = !empty($_SESSION['id']) && !empty($_SESSION['usuario']);
+
+            if(!$sesionActiva){
                 $insLogin->cerrarSesionControlador();
                 exit();
             }
