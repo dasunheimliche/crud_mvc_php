@@ -35,9 +35,9 @@
 
             # Cerrar sesion #
 
-            $sesionActiva = !empty($_SESSION['id']) && !empty($_SESSION['usuario']);
+            $isSessionActive = !empty($_SESSION['id']) && !empty($_SESSION['usuario']);
 
-            if(!$sesionActiva){
+            if(!$isSessionActive){
                 $insLogin->cerrarSesionControlador();
                 exit();
             }

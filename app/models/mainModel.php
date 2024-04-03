@@ -1,11 +1,27 @@
 <?php
 	
 	namespace app\models;
-	use \PDO;
 
-	if(file_exists(__DIR__."/../../config/server.php")){
-		require_once __DIR__."/../../config/server.php";
+	use \PDO;
+	use Exception;
+	use PDOException;
+
+
+	$serverConfigPath = __DIR__."/../../config/server.php";
+
+	try {
+
+		if (file_exists($serverConfigPath)) {
+			require_once $serverConfigPath;
+		} else {
+			throw new Exception("El archivo de configuración no existe: " . $serverConfigPath);			
+		}
+		
+	} catch (Exception $e) {
+		echo "Error: " . $e->getMessage();
 	}
+
+	class ConectionError extends Exception{}
 
 	class mainModel{
 
@@ -13,21 +29,33 @@
 		private $db=DB_NAME;
 		private $user=DB_USER;
 		private $pass=DB_PASS;
+		private $conn;
+
+		public function __construct() {
+			$this->conectar();
+		}
 
 
 		/*----------  Funcion conectar a BD  ----------*/
 		protected function conectar(){
-			$conexion = new PDO("mysql:host=".$this->server.";dbname=".$this->db,$this->user,$this->pass);
-			$conexion->exec("SET CHARACTER SET utf8");
-			return $conexion;
-		}
+			try {
+				$dns = "mysql:host=$this->server;dbname=$this->db;charset=utf8mb4";
+				$this->conn = new PDO($dns, $this->user, $this->pass);
 
+			} catch (PDOException $e) {
+				echo '<script>console.error("Error al conectar a la base de datos: '.$e->getMessage().'")</script>';
+			}
+		}
 
 		/*----------  Funcion ejecutar consultas  ----------*/
 		protected function ejecutarConsulta($consulta){
-			$sql=$this->conectar()->prepare($consulta);
-			$sql->execute();
-			return $sql;
+				if(!$this->conn) {
+					throw new ConectionError("Error al conectar a la base de datos, inténtelo de nuevo en unos minutos");
+				}
+
+				$sql=$this->conn->prepare($consulta);
+				$sql->execute();
+				return $sql;
 		}
 
 
@@ -63,91 +91,154 @@
 		/*----------  Funcion para ejecutar una consulta INSERT preparada  ----------*/
 		protected function guardarDatos($tabla,$datos){
 
-			$query="INSERT INTO $tabla (";
+			try {
 
-			$C=0;
-			foreach ($datos as $clave){
-				if($C>=1){ $query.=","; }
-				$query.=$clave["campo_nombre"];
-				$C++;
+				if(!$this->conn) {
+					throw new Exception("Error al conectar a la base de datos, inténtelo de nuevo en unos minutos");
+				}
+
+				$query="INSERT INTO $tabla (";
+
+				$C=0;
+				foreach ($datos as $clave){
+					if($C>=1){ $query.=","; }
+					$query.=$clave["campo_nombre"];
+					$C++;
+				}
+				
+				$query.=") VALUES(";
+
+				$C=0;
+				foreach ($datos as $clave){
+					if($C>=1){ $query.=","; }
+					$query.=$clave["campo_marcador"];
+					$C++;
+				}
+
+				$query.=")";
+				$sql=$this->conn->prepare($query);
+
+				foreach ($datos as $clave){
+					$sql->bindParam($clave["campo_marcador"],$clave["campo_valor"]);
+				}
+
+				$sql->execute();
+
+				return $sql;
+			} catch (Exception $e) {
+				echo "
+				<script>
+					Swal.fire({
+						icon: 'error',
+						title: 'Ocurrió un error inesperado',
+						text: '" . $e->getMessage() . "'
+					});
+				</script>
+				";
 			}
+
 			
-			$query.=") VALUES(";
-
-			$C=0;
-			foreach ($datos as $clave){
-				if($C>=1){ $query.=","; }
-				$query.=$clave["campo_marcador"];
-				$C++;
-			}
-
-			$query.=")";
-			$sql=$this->conectar()->prepare($query);
-
-			foreach ($datos as $clave){
-				$sql->bindParam($clave["campo_marcador"],$clave["campo_valor"]);
-			}
-
-			$sql->execute();
-
-			return $sql;
 		}
 
 
 		/*---------- Funcion seleccionar datos ----------*/
         public function seleccionarDatos($tipo,$tabla,$campo,$id){
+
+			if(!$this->conn) {
+				throw new Exception("Error al conectar a la base de datos, inténtelo de nuevo en unos minutos");
+			}
+
 			$tipo=$this->limpiarCadena($tipo);
 			$tabla=$this->limpiarCadena($tabla);
 			$campo=$this->limpiarCadena($campo);
 			$id=$this->limpiarCadena($id);
 
-            if($tipo=="Unico"){
-                $sql=$this->conectar()->prepare("SELECT * FROM $tabla WHERE $campo=:ID");
-                $sql->bindParam(":ID",$id);
-            }elseif($tipo=="Normal"){
-                $sql=$this->conectar()->prepare("SELECT $campo FROM $tabla");
-            }
-            $sql->execute();
+			if($tipo=="Unico"){
+				$sql=$this->conn->prepare("SELECT * FROM $tabla WHERE $campo=:ID");
+				$sql->bindParam(":ID",$id);
+			}elseif($tipo=="Normal"){
+				$sql=$this->conn->prepare("SELECT $campo FROM $tabla");
+			}
+			$sql->execute();
 
-            return $sql;
+			return $sql;
+			
 		}
 
 
 		/*----------  Funcion para ejecutar una consulta UPDATE preparada  ----------*/
 		protected function actualizarDatos($tabla,$datos,$condicion){
+
+			try {
+
+				if(!$this->conn) {
+					throw new Exception("Error al conectar a la base de datos, inténtelo de nuevo en unos minutos");
+				}
+
+				$query="UPDATE $tabla SET ";
+
+				$C=0;
+				foreach ($datos as $clave){
+					if($C>=1){ $query.=","; }
+					$query.=$clave["campo_nombre"]."=".$clave["campo_marcador"];
+					$C++;
+				}
+
+				$query.=" WHERE ".$condicion["condicion_campo"]."=".$condicion["condicion_marcador"];
+
+				$sql=$this->conn->prepare($query);
+
+				foreach ($datos as $clave){
+					$sql->bindParam($clave["campo_marcador"],$clave["campo_valor"]);
+				}
+
+				$sql->bindParam($condicion["condicion_marcador"],$condicion["condicion_valor"]);
+
+				$sql->execute();
+
+				return $sql;
+			} catch (Exception $e) {
+				echo "
+				<script>
+					Swal.fire({
+						icon: 'error',
+						title: 'Ocurrió un error inesperado',
+						text: '" . $e->getMessage() . "'
+					});
+				</script>
+				";
+			}
 			
-			$query="UPDATE $tabla SET ";
-
-			$C=0;
-			foreach ($datos as $clave){
-				if($C>=1){ $query.=","; }
-				$query.=$clave["campo_nombre"]."=".$clave["campo_marcador"];
-				$C++;
-			}
-
-			$query.=" WHERE ".$condicion["condicion_campo"]."=".$condicion["condicion_marcador"];
-
-			$sql=$this->conectar()->prepare($query);
-
-			foreach ($datos as $clave){
-				$sql->bindParam($clave["campo_marcador"],$clave["campo_valor"]);
-			}
-
-			$sql->bindParam($condicion["condicion_marcador"],$condicion["condicion_valor"]);
-
-			$sql->execute();
-
-			return $sql;
+			
 		}
 
 
 		/*---------- Funcion eliminar registro ----------*/
         protected function eliminarRegistro($tabla,$campo,$id){
-            $sql=$this->conectar()->prepare("DELETE FROM $tabla WHERE $campo=:id");
-            $sql->bindParam(":id",$id);
-            $sql->execute();
-            
-            return $sql;
+
+			try {
+
+				if(!$this->conn) {
+					throw new Exception("Error al conectar a la base de datos, inténtelo de nuevo en unos minutos");
+				}
+
+				$sql=$this->conn->prepare("DELETE FROM $tabla WHERE $campo=:id");
+				$sql->bindParam(":id",$id);
+				$sql->execute();
+				
+				return $sql;
+			} catch (Exception $e) {
+				echo "
+				<script>
+					Swal.fire({
+						icon: 'error',
+						title: 'Ocurrió un error inesperado',
+						text: '" . $e->getMessage() . "'
+					});
+				</script>
+				";
+			}
+
         }
 
 
@@ -204,5 +295,9 @@
 	        $tabla.='</nav>';
 	        return $tabla;
 	    }
+
+		public function __destruct() {
+			$this->conn = null;
+		}
 	    
 	}
