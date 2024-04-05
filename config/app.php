@@ -1,8 +1,8 @@
 <?php
 	$dominio_actual = $_SERVER['HTTP_HOST'];
-	const APP_URL=$dominio_actual."/";
-	const APP_NAME="CRUD POO MySQL";
-	const APP_SESSION_NAME="CRUD";
+	define('APP_URL', $dominio_actual . "/");
+	define('APP_NAME', "CRUD POO MySQL");
+	define('APP_SESSION_NAME', "CRUD");
 
 
 	/*----------  Zona horaria  ----------*/
