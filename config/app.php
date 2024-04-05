@@ -1,6 +1,6 @@
 <?php
-
-	const APP_URL="http://localhost/";
+	$dominio_actual = $_SERVER['HTTP_HOST'];
+	const APP_URL=$dominio_actual."/";
 	const APP_NAME="CRUD POO MySQL";
 	const APP_SESSION_NAME="CRUD";
 
